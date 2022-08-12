@@ -3,3 +3,4 @@
 pkg/
 ext/vitesse/*.o
 ext/vitesse/*.bundle
+ext/vitesse/Makefile
