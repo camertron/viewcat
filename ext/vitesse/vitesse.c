@@ -117,7 +117,7 @@ VALUE vt_append(VALUE self, VALUE str, bool escape) {
 }
 
 VALUE vt_safe_append(VALUE self, VALUE str) {
-    return vt_append(self, str, true);
+    return vt_append(self, str, false);
 }
 
 VALUE vt_unsafe_append(VALUE self, VALUE str) {
@@ -143,7 +143,7 @@ VALUE vt_to_str(VALUE self) {
 
     result[data->len] = '\0';
 
-    return rb_str_new(result, data->len + 1);
+    return rb_str_new(result, data->len);
 }
 
 VALUE vt_to_s(VALUE self) {
@@ -220,9 +220,11 @@ VALUE vt_capture(VALUE self) {
     VALUE result = Qnil;
 
     if (!state) {
-        VALUE result = vt_to_str(self);
+        result = vt_to_str(self);
         result = rb_funcall(result, html_safe_id, 0);
     }
+
+    vt_data_free(data);
 
     data->head = old_head;
     data->tail = old_tail;
@@ -273,6 +275,12 @@ VALUE vt_equals(VALUE self, VALUE other) {
     return Qtrue;
 }
 
+VALUE vt_raw_append(VALUE self, VALUE str) {
+    VALUE buffer = rb_iv_get(self, "@buffer");
+    vt_append(buffer, str, false);
+    return Qnil;
+}
+
 void Init_vitesse() {
     call_id = rb_intern("call");
     to_str_id = rb_intern("to_str");
@@ -281,6 +289,7 @@ void Init_vitesse() {
 
     VALUE action_view_mod = rb_const_get(rb_cObject, rb_intern("ActionView"));
     VALUE buffer_class = rb_const_get(action_view_mod, rb_intern("OutputBuffer"));
+    VALUE raw_buffer_class = rb_const_get(action_view_mod, rb_intern("RawOutputBuffer"));
     // buffer_class = rb_define_class("OutputBuffer", rb_cObject);
     rb_define_alloc_func(buffer_class, vt_data_alloc);
 
@@ -301,4 +310,6 @@ void Init_vitesse() {
     rb_define_method(buffer_class, "initialize_copy", RUBY_METHOD_FUNC(vt_initialize_copy), 1);
     rb_define_method(buffer_class, "capture", RUBY_METHOD_FUNC(vt_capture), 0);
     rb_define_method(buffer_class, "==", RUBY_METHOD_FUNC(vt_equals), 0);
+
+    rb_define_method(raw_buffer_class, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
 }
