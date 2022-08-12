@@ -299,7 +299,7 @@ void Init_vitesse() {
 
     rb_define_method(buffer_class, "safe_concat", RUBY_METHOD_FUNC(vt_safe_append), 1);
     rb_define_method(buffer_class, "safe_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
-    rb_define_method(buffer_class, "safe_expr_append=", RUBY_METHOD_FUNC(vt_safe_append), 0);
+    rb_define_method(buffer_class, "safe_expr_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
 
     rb_define_method(buffer_class, "to_s", RUBY_METHOD_FUNC(vt_to_s), 0);
     rb_define_method(buffer_class, "to_str", RUBY_METHOD_FUNC(vt_to_str), 0);
