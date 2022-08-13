@@ -15,12 +15,13 @@ struct vt_data {
     struct Node* head;
     struct Node* tail;
     unsigned long len;
+    int encidx;
 };
 
-static VALUE buffer_class;
 static ID html_safe_predicate_id;
 static ID html_safe_id;
 static ID to_str_id;
+static ID to_s_id;
 static ID call_id;
 
 void vt_data_free(void* _data) {
@@ -75,22 +76,36 @@ VALUE vt_data_alloc(VALUE self) {
     data->head = NULL;
     data->tail = NULL;
     data->len = 0;
+    data->encidx = rb_locale_encindex();
 
     return TypedData_Wrap_Struct(self, &vt_data_type, data);
 }
 
 VALUE vt_append(VALUE self, VALUE str, bool escape) {
-    if (NIL_P(str)) {
-        return self;
+    if (CLASS_OF(str) != rb_cString) {
+        str = rb_funcall(str, to_s_id, 0);
     }
 
     struct vt_data* data;
     TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+
+    int str_encidx = ENCODING_GET(str);
+
+    if (str_encidx != data->encidx) {
+        rb_encoding *source_enc = rb_enc_from_index(str_encidx);
+        rb_encoding *dest_enc = rb_enc_from_index(data->encidx);
+        const char* source_name = rb_enc_name(source_enc);
+        const char* dest_name = rb_enc_name(dest_enc);
+        rb_econv_t* ec = rb_econv_open(source_name, dest_name, 0);
+        str = rb_econv_str_convert(ec, str, 0);
+        rb_econv_close(ec);
+    }
+
     struct Node* new_node;
     new_node = malloc(sizeof(struct Node));
 
-    new_node->len = RSTRING_LEN(str);
     u_int8_t* raw_str = (u_int8_t*)StringValuePtr(str);
+    new_node->len = strlen((char*)raw_str);
 
     if (escape) {
         new_node->raw_len = hesc_escape_html(&raw_str, raw_str, new_node->len);
@@ -117,15 +132,31 @@ VALUE vt_append(VALUE self, VALUE str, bool escape) {
 }
 
 VALUE vt_safe_append(VALUE self, VALUE str) {
+    if (NIL_P(str)) {
+        return self;
+    }
+
     return vt_append(self, str, false);
 }
 
 VALUE vt_unsafe_append(VALUE self, VALUE str) {
+    if (NIL_P(str)) {
+        return self;
+    }
+
     if (rb_funcall(str, html_safe_predicate_id, 0) == Qfalse) {
         return vt_append(self, str, true);
     }
 
     return vt_append(self, str, false);
+}
+
+VALUE vt_initialize(int argc, VALUE* argv, VALUE self) {
+    if (argc == 1) {
+        vt_append(self, argv[0], false);
+    }
+
+    return Qnil;
 }
 
 VALUE vt_to_str(VALUE self) {
@@ -177,6 +208,8 @@ VALUE vt_blank(VALUE self) {
         if (!fb_str_blank_as(current->str)) {
             return Qfalse;
         }
+
+        current = current->next;
     }
 
     return Qtrue;
@@ -238,7 +271,7 @@ VALUE vt_capture(VALUE self) {
 }
 
 VALUE vt_equals(VALUE self, VALUE other) {
-    if (RBASIC_CLASS(other) != buffer_class) {
+    if (CLASS_OF(other) != CLASS_OF(self)) {
         return Qfalse;
     }
 
@@ -256,6 +289,10 @@ VALUE vt_equals(VALUE self, VALUE other) {
     struct Node* other_current = other_data->head;
 
     while(true) {
+        if (current == NULL && other_current == NULL) {
+            break;
+        }
+
         if (current == NULL && other_current != NULL) {
             return Qfalse;
         }
@@ -275,6 +312,23 @@ VALUE vt_equals(VALUE self, VALUE other) {
     return Qtrue;
 }
 
+VALUE vt_encode_bang(VALUE self) {
+    return self;
+}
+
+VALUE vt_force_encoding(VALUE self, VALUE enc) {
+    struct vt_data* data;
+    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    data->encidx = rb_to_encoding_index(enc);
+    return self;
+}
+
+VALUE vt_encoding(VALUE self) {
+    struct vt_data* data;
+    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    return rb_enc_from_encoding(rb_enc_from_index(data->encidx));
+}
+
 VALUE vt_raw_append(VALUE self, VALUE str) {
     VALUE buffer = rb_iv_get(self, "@buffer");
     vt_append(buffer, str, false);
@@ -283,6 +337,7 @@ VALUE vt_raw_append(VALUE self, VALUE str) {
 
 void Init_vitesse() {
     call_id = rb_intern("call");
+    to_s_id = rb_intern("to_s");
     to_str_id = rb_intern("to_str");
     html_safe_id = rb_intern("html_safe");
     html_safe_predicate_id = rb_intern("html_safe?");
@@ -290,8 +345,9 @@ void Init_vitesse() {
     VALUE action_view_mod = rb_const_get(rb_cObject, rb_intern("ActionView"));
     VALUE buffer_class = rb_const_get(action_view_mod, rb_intern("OutputBuffer"));
     VALUE raw_buffer_class = rb_const_get(action_view_mod, rb_intern("RawOutputBuffer"));
-    // buffer_class = rb_define_class("OutputBuffer", rb_cObject);
+
     rb_define_alloc_func(buffer_class, vt_data_alloc);
+    rb_define_method(buffer_class, "initialize", RUBY_METHOD_FUNC(vt_initialize), -1);
 
     rb_define_method(buffer_class, "<<", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
     rb_define_method(buffer_class, "concat", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
@@ -309,7 +365,10 @@ void Init_vitesse() {
     rb_define_method(buffer_class, "html_safe?", RUBY_METHOD_FUNC(vt_html_safe_predicate), 0);
     rb_define_method(buffer_class, "initialize_copy", RUBY_METHOD_FUNC(vt_initialize_copy), 1);
     rb_define_method(buffer_class, "capture", RUBY_METHOD_FUNC(vt_capture), 0);
-    rb_define_method(buffer_class, "==", RUBY_METHOD_FUNC(vt_equals), 0);
+    rb_define_method(buffer_class, "==", RUBY_METHOD_FUNC(vt_equals), 1);
+    rb_define_method(buffer_class, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), 0);
+    rb_define_method(buffer_class, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
+    rb_define_method(buffer_class, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
 
     rb_define_method(raw_buffer_class, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
 }
