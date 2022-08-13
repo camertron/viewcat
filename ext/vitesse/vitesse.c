@@ -343,32 +343,35 @@ void Init_vitesse() {
     html_safe_predicate_id = rb_intern("html_safe?");
 
     VALUE action_view_mod = rb_const_get(rb_cObject, rb_intern("ActionView"));
-    VALUE buffer_class = rb_const_get(action_view_mod, rb_intern("OutputBuffer"));
-    VALUE raw_buffer_class = rb_const_get(action_view_mod, rb_intern("RawOutputBuffer"));
+    VALUE action_view_buffer_class = rb_const_get(action_view_mod, rb_intern("OutputBuffer"));
+    rb_define_alloc_func(action_view_buffer_class, vt_data_alloc);
 
-    rb_define_alloc_func(buffer_class, vt_data_alloc);
-    rb_define_method(buffer_class, "initialize", RUBY_METHOD_FUNC(vt_initialize), -1);
+    VALUE vt_mod = rb_define_module("Vitesse");
+    VALUE vt_buffer_mod = rb_define_module_under(vt_mod, "OutputBufferPatch");
+    VALUE vt_raw_buffer_mod = rb_define_module_under(vt_mod, "RawOutputBufferPatch");
 
-    rb_define_method(buffer_class, "<<", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
-    rb_define_method(buffer_class, "concat", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
-    rb_define_method(buffer_class, "append=", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
+    rb_define_method(vt_buffer_mod, "initialize", RUBY_METHOD_FUNC(vt_initialize), -1);
 
-    rb_define_method(buffer_class, "safe_concat", RUBY_METHOD_FUNC(vt_safe_append), 1);
-    rb_define_method(buffer_class, "safe_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
-    rb_define_method(buffer_class, "safe_expr_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
+    rb_define_method(vt_buffer_mod, "<<", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
+    rb_define_method(vt_buffer_mod, "concat", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
+    rb_define_method(vt_buffer_mod, "append=", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
 
-    rb_define_method(buffer_class, "to_s", RUBY_METHOD_FUNC(vt_to_s), 0);
-    rb_define_method(buffer_class, "to_str", RUBY_METHOD_FUNC(vt_to_str), 0);
-    rb_define_method(buffer_class, "length", RUBY_METHOD_FUNC(vt_length), 0);
-    rb_define_method(buffer_class, "empty?", RUBY_METHOD_FUNC(vt_empty), 0);
-    rb_define_method(buffer_class, "blank?", RUBY_METHOD_FUNC(vt_blank), 0);
-    rb_define_method(buffer_class, "html_safe?", RUBY_METHOD_FUNC(vt_html_safe_predicate), 0);
-    rb_define_method(buffer_class, "initialize_copy", RUBY_METHOD_FUNC(vt_initialize_copy), 1);
-    rb_define_method(buffer_class, "capture", RUBY_METHOD_FUNC(vt_capture), 0);
-    rb_define_method(buffer_class, "==", RUBY_METHOD_FUNC(vt_equals), 1);
-    rb_define_method(buffer_class, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), 0);
-    rb_define_method(buffer_class, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
-    rb_define_method(buffer_class, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
+    rb_define_method(vt_buffer_mod, "safe_concat", RUBY_METHOD_FUNC(vt_safe_append), 1);
+    rb_define_method(vt_buffer_mod, "safe_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
+    rb_define_method(vt_buffer_mod, "safe_expr_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
 
-    rb_define_method(raw_buffer_class, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
+    rb_define_method(vt_buffer_mod, "to_s", RUBY_METHOD_FUNC(vt_to_s), 0);
+    rb_define_method(vt_buffer_mod, "to_str", RUBY_METHOD_FUNC(vt_to_str), 0);
+    rb_define_method(vt_buffer_mod, "length", RUBY_METHOD_FUNC(vt_length), 0);
+    rb_define_method(vt_buffer_mod, "empty?", RUBY_METHOD_FUNC(vt_empty), 0);
+    rb_define_method(vt_buffer_mod, "blank?", RUBY_METHOD_FUNC(vt_blank), 0);
+    rb_define_method(vt_buffer_mod, "html_safe?", RUBY_METHOD_FUNC(vt_html_safe_predicate), 0);
+    rb_define_method(vt_buffer_mod, "initialize_copy", RUBY_METHOD_FUNC(vt_initialize_copy), 1);
+    rb_define_method(vt_buffer_mod, "capture", RUBY_METHOD_FUNC(vt_capture), 0);
+    rb_define_method(vt_buffer_mod, "==", RUBY_METHOD_FUNC(vt_equals), 1);
+    rb_define_method(vt_buffer_mod, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), 0);
+    rb_define_method(vt_buffer_mod, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
+    rb_define_method(vt_buffer_mod, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
+
+    rb_define_method(vt_raw_buffer_mod, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
 }
