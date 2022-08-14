@@ -20,9 +20,18 @@ struct vt_data {
 
 static ID html_safe_predicate_id;
 static ID html_safe_id;
+static ID encode_id;
 static ID to_str_id;
 static ID to_s_id;
 static ID call_id;
+
+static void maybe_free_raw_str(struct Node* node) {
+    // if hescape adds characters it allocates a new string,
+    // which needs to be manually freed
+    if (node->len != node->raw_len) {
+        free(node->raw_str);
+    }
+}
 
 void vt_data_free(void* _data) {
     struct vt_data *data = (struct vt_data*)_data;
@@ -30,13 +39,7 @@ void vt_data_free(void* _data) {
 
     while(current != NULL) {
         struct Node* next = current->next;
-
-        // if hescape adds characters it allocates a new string,
-        // which needs to be manually freed
-        if (current->len != current->raw_len) {
-            free(current->raw_str);
-        }
-
+        maybe_free_raw_str(current);
         free(current);
         current = next;
     }
@@ -81,6 +84,20 @@ VALUE vt_data_alloc(VALUE self) {
     return TypedData_Wrap_Struct(self, &vt_data_type, data);
 }
 
+static void set_str(struct Node* node, VALUE str, bool escape) {
+    u_int8_t* raw_str = (u_int8_t*)StringValuePtr(str);
+    node->len = strlen((char*)raw_str);
+
+    if (escape) {
+        node->raw_len = hesc_escape_html(&raw_str, raw_str, node->len);
+    } else {
+        node->raw_len = node->len;
+    }
+
+    node->str = str;
+    node->raw_str = (char*)raw_str;
+}
+
 VALUE vt_append(VALUE self, VALUE str, bool escape) {
     if (CLASS_OF(str) != rb_cString) {
         str = rb_funcall(str, to_s_id, 0);
@@ -92,29 +109,14 @@ VALUE vt_append(VALUE self, VALUE str, bool escape) {
     int str_encidx = ENCODING_GET(str);
 
     if (str_encidx != data->encidx) {
-        rb_encoding *source_enc = rb_enc_from_index(str_encidx);
-        rb_encoding *dest_enc = rb_enc_from_index(data->encidx);
-        const char* source_name = rb_enc_name(source_enc);
-        const char* dest_name = rb_enc_name(dest_enc);
-        rb_econv_t* ec = rb_econv_open(source_name, dest_name, 0);
-        str = rb_econv_str_convert(ec, str, 0);
-        rb_econv_close(ec);
+        rb_encoding *enc = rb_enc_from_index(data->encidx);
+        VALUE rb_enc = rb_enc_from_encoding(enc);
+        str = rb_str_encode(str, rb_enc, 0, Qnil);
     }
 
     struct Node* new_node;
     new_node = malloc(sizeof(struct Node));
-
-    u_int8_t* raw_str = (u_int8_t*)StringValuePtr(str);
-    new_node->len = strlen((char*)raw_str);
-
-    if (escape) {
-        new_node->raw_len = hesc_escape_html(&raw_str, raw_str, new_node->len);
-    } else {
-        new_node->raw_len = new_node->len;
-    }
-
-    new_node->str = str;
-    new_node->raw_str = (char*)raw_str;
+    set_str(new_node, str, escape);
     new_node->next = NULL;
 
     if (data->tail != NULL) {
@@ -174,7 +176,7 @@ VALUE vt_to_str(VALUE self) {
 
     result[data->len] = '\0';
 
-    return rb_str_new(result, data->len);
+    return rb_enc_str_new(result, data->len, rb_enc_from_index(data->encidx));
 }
 
 VALUE vt_to_s(VALUE self) {
@@ -312,7 +314,18 @@ VALUE vt_equals(VALUE self, VALUE other) {
     return Qtrue;
 }
 
-VALUE vt_encode_bang(VALUE self) {
+VALUE vt_encode_bang(int argc, VALUE* argv, VALUE self) {
+    struct vt_data* data;
+    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    struct Node* current = data->head;
+
+    while(current != NULL) {
+        VALUE new_str = rb_funcallv(current->str, encode_id, argc, argv);
+        maybe_free_raw_str(current);
+        set_str(current, new_str, false);
+        current = current->next;
+    }
+
     return self;
 }
 
@@ -339,6 +352,7 @@ void Init_vitesse() {
     call_id = rb_intern("call");
     to_s_id = rb_intern("to_s");
     to_str_id = rb_intern("to_str");
+    encode_id = rb_intern("encode");
     html_safe_id = rb_intern("html_safe");
     html_safe_predicate_id = rb_intern("html_safe?");
 
@@ -369,7 +383,7 @@ void Init_vitesse() {
     rb_define_method(vt_buffer_mod, "initialize_copy", RUBY_METHOD_FUNC(vt_initialize_copy), 1);
     rb_define_method(vt_buffer_mod, "capture", RUBY_METHOD_FUNC(vt_capture), 0);
     rb_define_method(vt_buffer_mod, "==", RUBY_METHOD_FUNC(vt_equals), 1);
-    rb_define_method(vt_buffer_mod, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), 0);
+    rb_define_method(vt_buffer_mod, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), -1);
     rb_define_method(vt_buffer_mod, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
     rb_define_method(vt_buffer_mod, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
 
