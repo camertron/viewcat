@@ -1,4 +1,5 @@
 # frozen_string_literal: true
 
-module Vitesse
+if defined?(Rails::Engine)
+  require "vitesse/engine"
 end
