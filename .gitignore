@@ -2,7 +2,7 @@ Gemfile.lock
 .DS_Store
 .vscode
 pkg/
-ext/vitesse/*.o
-ext/vitesse/*.bundle
-ext/vitesse/*.so
-ext/vitesse/Makefile
+tmp/
+old/
+lib/vitesse/*.bundle
+lib/vitesse/*.so

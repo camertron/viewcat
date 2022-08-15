@@ -1,12 +1,11 @@
-require_relative "ext/vitesse/vitesse"
-require "benchmark/ips"
+# frozen_string_literal: true
 
-Benchmark.ips do |x|
-  x.report do
-    buffer = OutputBuffer.new
-    buffer.safe_append("foo")
-    buffer.safe_append("bar")
+require "vitesse"
+require "active_support/core_ext/string/output_safety"
 
-    buffer.to_str
-  end
+buffer = Vitesse::OutputBuffer.new
+10.times do
+  buffer.safe_append=("this is a longer string that should need a pointer")
+  buffer.append=("this is another quite long string that should need its own memory")
 end
+puts buffer.to_str

@@ -17,7 +17,8 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.required_ruby_version = ">= 2.7.0"
+  spec.extensions = %w[ext/vitesse/extconf.rb]
 
-  spec.add_runtime_dependency "actionview", "~> 7.0.0"
-  spec.add_runtime_dependency "railties", "~> 7.0"
+  spec.add_runtime_dependency "actionview" # , "~> 7.0.0"
+  spec.add_runtime_dependency "railties" # , "~> 7.0"
 end
