@@ -20,6 +20,8 @@ struct vt_data {
     int encidx;
 };
 
+static VALUE vt_mod, vt_buffer, vt_raw_buffer;
+
 static ID html_safe_predicate_id;
 static ID html_safe_id;
 static ID encode_id;
@@ -148,7 +150,7 @@ VALUE vt_safe_append(VALUE self, VALUE str) {
         return Qnil;
     }
 
-    return vt_append(self, str, true);
+    return vt_append(self, str, false);
 }
 
 VALUE vt_unsafe_append(VALUE self, VALUE str) {
@@ -343,14 +345,21 @@ VALUE vt_encoding(VALUE self) {
     return rb_enc_from_encoding(rb_enc_from_index(data->encidx));
 }
 
-VALUE vt_raw(VALUE self) {
-    return self;
+VALUE vt_raw_initialize(VALUE self, VALUE buf) {
+    rb_iv_set(self, "@buffer", buf);
+    return Qnil;
 }
 
 VALUE vt_raw_append(VALUE self, VALUE str) {
     VALUE buffer = rb_iv_get(self, "@buffer");
     vt_append(buffer, str, false);
     return Qnil;
+}
+
+VALUE vt_raw(VALUE self) {
+    VALUE raw_buffer = rb_obj_alloc(vt_raw_buffer);
+    vt_raw_initialize(raw_buffer, self);
+    return raw_buffer;
 }
 
 void Init_vitesse() {
@@ -361,9 +370,8 @@ void Init_vitesse() {
     html_safe_id = rb_intern("html_safe");
     html_safe_predicate_id = rb_intern("html_safe?");
 
-    VALUE vt_mod = rb_define_module("Vitesse");
-    VALUE vt_buffer = rb_define_class_under(vt_mod, "OutputBuffer", rb_cObject);
-    VALUE vt_raw_buffer = rb_define_class_under(vt_mod, "RawOutputBuffer", rb_cObject);
+    vt_mod = rb_define_module("Vitesse");
+    vt_buffer = rb_define_class_under(vt_mod, "OutputBuffer", rb_cObject);
     rb_define_alloc_func(vt_buffer, vt_data_alloc);
 
     rb_define_method(vt_buffer, "initialize", RUBY_METHOD_FUNC(vt_initialize), -1);
@@ -390,5 +398,7 @@ void Init_vitesse() {
     rb_define_method(vt_buffer, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
     rb_define_method(vt_buffer, "raw", RUBY_METHOD_FUNC(vt_raw), 0);
 
+    vt_raw_buffer = rb_define_class_under(vt_mod, "RawOutputBuffer", rb_cObject);
+    rb_define_method(vt_raw_buffer, "initialize", RUBY_METHOD_FUNC(vt_raw_initialize), 1);
     rb_define_method(vt_raw_buffer, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
 }
