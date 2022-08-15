@@ -343,6 +343,10 @@ VALUE vt_encoding(VALUE self) {
     return rb_enc_from_encoding(rb_enc_from_index(data->encidx));
 }
 
+VALUE vt_raw(VALUE self) {
+    return self;
+}
+
 VALUE vt_raw_append(VALUE self, VALUE str) {
     VALUE buffer = rb_iv_get(self, "@buffer");
     vt_append(buffer, str, false);
@@ -384,6 +388,7 @@ void Init_vitesse() {
     rb_define_method(vt_buffer, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), -1);
     rb_define_method(vt_buffer, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
     rb_define_method(vt_buffer, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
+    rb_define_method(vt_buffer, "raw", RUBY_METHOD_FUNC(vt_raw), 0);
 
     rb_define_method(vt_raw_buffer, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
 }
