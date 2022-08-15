@@ -1,10 +1,15 @@
 # frozen_string_literal: true
 
+require "bundler"
 require "rake/extensiontask"
 
-Rake::ExtensionTask.new "vitesse" do |ext|
+spec = Bundler.load_gemspec("vitesse.gemspec")
+
+Rake::ExtensionTask.new("vitesse", spec) do |ext|
   ext.lib_dir = "lib/vitesse"
 end
+
+Bundler::GemHelper.install_tasks
 
 task :bench do
   load "bench.rb"
