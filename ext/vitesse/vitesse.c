@@ -38,6 +38,8 @@ static void maybe_free_raw_str(struct Node* node) {
 }
 
 void vt_data_free(void* _data) {
+    return;
+
     struct vt_data *data = (struct vt_data*)_data;
 
     if (data->entries == NULL) {
