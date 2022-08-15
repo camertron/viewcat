@@ -11,11 +11,15 @@ module Vitesse
 
       ActiveSupport.on_load(:action_view) do
         if options.enabled
-          ActionView::OriginalOutputBuffer ||= ActionView::OutputBuffer
-          ActionView::OriginalRawOutputBuffer ||= ActionView::RawOutputBuffer
+          require "action_view/buffers"
 
+          ActionView::OriginalOutputBuffer ||= ActionView::OutputBuffer
           ActionView::OutputBuffer = Vitesse::OutputBuffer
-          ActionView::RawOutputBuffer = Vitesse::RawOutputBuffer
+
+          if ActionView.const_defined?(:RawOutputBuffer)
+            ActionView::OriginalRawOutputBuffer ||= ActionView::RawOutputBuffer
+            ActionView::RawOutputBuffer = Vitesse::RawOutputBuffer
+          end
         end
       end
     end
