@@ -7,7 +7,7 @@ spec = Bundler.load_gemspec("vitesse.gemspec")
 
 Rake::ExtensionTask.new("vitesse", spec) do |ext|
   ext.ext_dir = "ext/vitesse"
-  ext.lib_dir = "lib/vitesse"
+  ext.lib_dir = "lib/vitesse/vitesse"
 end
 
 Bundler::GemHelper.install_tasks
