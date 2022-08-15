@@ -34,12 +34,11 @@ static void maybe_free_raw_str(struct Node* node) {
     // which needs to be manually freed
     if (node->len != node->raw_len) {
         free(node->raw_str);
+        node->raw_str = NULL;
     }
 }
 
 void vt_data_free(void* _data) {
-    return;
-
     struct vt_data *data = (struct vt_data*)_data;
 
     if (data->entries == NULL) {
@@ -51,6 +50,10 @@ void vt_data_free(void* _data) {
     }
 
     free(data->entries);
+
+    data->entries = NULL;
+    data->count = 0;
+    data->capacity = 0;
 }
 
 void vt_data_mark(void* _data) {
@@ -105,7 +108,7 @@ VALUE vt_data_alloc(VALUE self) {
 }
 
 static inline void set_str(struct Node* node, VALUE str, bool escape) {
-    u_int8_t* raw_str = (u_int8_t*)StringValuePtr(str);
+    uint8_t* raw_str = (uint8_t*)StringValuePtr(str);
     node->len = strlen((char*)raw_str);
 
     if (escape) {

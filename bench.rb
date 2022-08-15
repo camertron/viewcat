@@ -13,7 +13,7 @@ Benchmark.ips do |x|
 
     TIMES.times do
       buffer.safe_append=("this is a longer string that should need a pointer")
-      buffer.append=("this is another quite long string that should need its own memory")
+      buffer.append=("this is another <em>quite</em> long string that should need its own memory")
     end
 
     buffer.to_str
@@ -24,7 +24,7 @@ Benchmark.ips do |x|
 
     TIMES.times do
       buffer.safe_append=("this is a longer string that should need a pointer")
-      buffer.append=("this is another quite long string that should need its own memory")
+      buffer.append=("this is another <em>quite</em> long string that should need its own memory")
     end
 
     buffer.to_str
