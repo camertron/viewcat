@@ -54,6 +54,8 @@ void vt_data_free(void* _data) {
     data->entries = NULL;
     data->count = 0;
     data->capacity = 0;
+    data->len = 0;
+    data->encidx = rb_locale_encindex();
 }
 
 void vt_data_mark(void* _data) {
