@@ -50,12 +50,6 @@ void vt_data_free(void* _data) {
     }
 
     free(data->entries);
-
-    data->entries = NULL;
-    data->count = 0;
-    data->capacity = 0;
-    data->len = 0;
-    data->encidx = rb_locale_encindex();
 }
 
 void vt_data_mark(void* _data) {
@@ -357,6 +351,18 @@ VALUE vt_raw_initialize(VALUE self, VALUE buf) {
     return Qnil;
 }
 
+VALUE vt_count(VALUE self) {
+    struct vt_data* data;
+    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    return LONG2FIX(data->count);
+}
+
+VALUE vt_capacity(VALUE self) {
+    struct vt_data* data;
+    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    return LONG2FIX(data->capacity);
+}
+
 VALUE vt_raw_append(VALUE self, VALUE str) {
     VALUE buffer = rb_iv_get(self, "@buffer");
     vt_append(buffer, str, false);
@@ -404,6 +410,9 @@ void Init_vitesse() {
     rb_define_method(vt_buffer, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
     rb_define_method(vt_buffer, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
     rb_define_method(vt_buffer, "raw", RUBY_METHOD_FUNC(vt_raw), 0);
+
+    rb_define_method(vt_buffer, "count", RUBY_METHOD_FUNC(vt_count), 0);
+    rb_define_method(vt_buffer, "capacity", RUBY_METHOD_FUNC(vt_capacity), 0);
 
     vt_raw_buffer = rb_define_class_under(vt_mod, "RawOutputBuffer", rb_cObject);
     rb_define_method(vt_raw_buffer, "initialize", RUBY_METHOD_FUNC(vt_raw_initialize), 1);
