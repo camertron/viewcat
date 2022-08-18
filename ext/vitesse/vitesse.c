@@ -2,14 +2,13 @@
 #include "ruby/encoding.h"
 #include "hescape.h"
 #include "fast_blank.h"
+#include "fast_blank.h"
 
 static const int INITIAL_CAPACITY = 5;
 
 struct Node {
     VALUE str;
     unsigned long len;
-    char* raw_str;
-    unsigned long raw_len;
 };
 
 struct vt_data {
@@ -29,15 +28,6 @@ static ID to_str_id;
 static ID to_s_id;
 static ID call_id;
 
-static void maybe_free_raw_str(struct Node* node) {
-    // if hescape adds characters it allocates a new string,
-    // which needs to be manually freed
-    if (node->len != node->raw_len) {
-        free(node->raw_str);
-        node->raw_str = NULL;
-    }
-}
-
 void vt_data_free(void* _data) {
     struct vt_data *data = (struct vt_data*)_data;
 
@@ -45,11 +35,8 @@ void vt_data_free(void* _data) {
         return;
     }
 
-    for(int i = 0; i < data->count; i ++) {
-        maybe_free_raw_str(&data->entries[i]);
-    }
-
     free(data->entries);
+    data->entries = NULL;
 }
 
 void vt_data_mark(void* _data) {
@@ -104,17 +91,12 @@ VALUE vt_data_alloc(VALUE self) {
 }
 
 static inline void set_str(struct Node* node, VALUE str, bool escape) {
-    uint8_t* raw_str = (uint8_t*)StringValuePtr(str);
-    node->len = strlen((char*)raw_str);
-
     if (escape) {
-        node->raw_len = hesc_escape_html(&raw_str, raw_str, node->len);
-    } else {
-        node->raw_len = node->len;
+        str = rb_escape_html(str);
     }
 
     node->str = str;
-    node->raw_str = (char*)raw_str;
+    node->len = RSTRING_LEN(str);
 }
 
 VALUE vt_append(VALUE self, VALUE str, bool escape) {
@@ -141,7 +123,7 @@ VALUE vt_append(VALUE self, VALUE str, bool escape) {
     set_str(new_node, str, escape);
 
     data->count ++;
-    data->len += new_node->raw_len;
+    data->len += new_node->len;
 
     return Qnil;
 }
@@ -186,8 +168,8 @@ VALUE vt_to_str(VALUE self) {
 
     for (int i = 0; i < data->count; i ++) {
         struct Node* current = &data->entries[i];
-        memcpy(result + pos, current->raw_str, current->raw_len);
-        pos += current->raw_len;
+        memcpy(result + pos, RSTRING_PTR(current->str), current->len);
+        pos += current->len;
     }
 
     result[data->len] = '\0';
@@ -238,6 +220,10 @@ VALUE vt_initialize_copy(VALUE self, VALUE other) {
     struct vt_data* data;
     TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
     vt_data_free(data);
+    data->count = 0;
+    data->capacity = 0;
+    data->len = 0;
+    data->encidx = rb_locale_encindex();
 
     VALUE other_str = rb_funcall(other, to_str_id, 0);
     vt_append(self, other_str, false);
@@ -311,7 +297,7 @@ VALUE vt_equals(VALUE self, VALUE other) {
     }
 
     for (int i = 0; i < data->count; i ++) {
-        if (strcmp(data->entries[i].raw_str, other_data->entries[i].raw_str) != 0) {
+        if (strcmp(RSTRING_PTR(data->entries[i].str), RSTRING_PTR(other_data->entries[i].str)) != 0) {
             return Qfalse;
         }
     }
@@ -326,7 +312,6 @@ VALUE vt_encode_bang(int argc, VALUE* argv, VALUE self) {
     for (int i = 0; i < data->count; i ++) {
         struct Node* current = &data->entries[i];
         VALUE new_str = rb_funcallv(current->str, encode_id, argc, argv);
-        maybe_free_raw_str(current);
         set_str(current, new_str, false);
     }
 

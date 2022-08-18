@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <stdint.h>
+#include "ruby.h"
 
 /*
  * Replace characters according to the following rules.
@@ -16,6 +17,6 @@
  *
  * @return size of dest. If it's larger than len, dest is required to be freed.
  */
-extern size_t hesc_escape_html(uint8_t **dest, const uint8_t *src, size_t size);
+extern VALUE rb_escape_html(VALUE str);
 
 #endif
