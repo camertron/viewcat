@@ -16,6 +16,6 @@
  *
  * @return size of dest. If it's larger than len, dest is required to be freed.
  */
-extern size_t hesc_escape_html(uint8_t **dest, const uint8_t *src, size_t size);
+extern size_t hesc_escape_html(char **dest, const char *buf, size_t size);
 
 #endif

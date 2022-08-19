@@ -32,7 +32,7 @@ static ID call_id;
 static void maybe_free_raw_str(struct Node* node) {
     // if hescape adds characters it allocates a new string,
     // which needs to be manually freed
-    if (node->len != node->raw_len) {
+    if (node->raw_len > node->len) {
         free(node->raw_str);
         node->raw_str = NULL;
     }
@@ -50,6 +50,7 @@ void vt_data_free(void* _data) {
     }
 
     free(data->entries);
+    data->entries = NULL;
 }
 
 void vt_data_mark(void* _data) {
@@ -68,8 +69,8 @@ static const rb_data_type_t vt_data_type = {
 	.wrap_struct_name = "vt_data",
 	.function = {
         .dmark = vt_data_mark,
-		.dfree = vt_data_free,
-		.dsize = vt_data_size,
+        .dfree = vt_data_free,
+        .dsize = vt_data_size,
 	},
 	.flags = RUBY_TYPED_FREE_IMMEDIATELY,
 };
@@ -85,7 +86,7 @@ static inline void resize(struct vt_data* data, int capacity) {
         new_entries[i] = data->entries[i];
     }
 
-    vt_data_free(data);
+    free(data->entries);
 
     data->capacity = capacity;
     data->entries = new_entries;
@@ -104,8 +105,8 @@ VALUE vt_data_alloc(VALUE self) {
 }
 
 static inline void set_str(struct Node* node, VALUE str, bool escape) {
-    uint8_t* raw_str = (uint8_t*)StringValuePtr(str);
-    node->len = strlen((char*)raw_str);
+    char* raw_str = RSTRING_PTR(str);
+    node->len = RSTRING_LEN(str);
 
     if (escape) {
         node->raw_len = hesc_escape_html(&raw_str, raw_str, node->len);
@@ -118,8 +119,8 @@ static inline void set_str(struct Node* node, VALUE str, bool escape) {
 }
 
 VALUE vt_append(VALUE self, VALUE str, bool escape) {
-    if (CLASS_OF(str) != rb_cString) {
-        str = rb_funcall(str, to_s_id, 0);
+    if (TYPE(str) != T_STRING) {
+        str = rb_convert_type(str, T_STRING, "String", "to_s");
     }
 
     struct vt_data* data;
@@ -161,7 +162,7 @@ VALUE vt_unsafe_append(VALUE self, VALUE str) {
 
     bool escape;
 
-    if (CLASS_OF(str) == rb_cString) {
+    if (TYPE(str) == T_STRING) {
         escape = true;
     } else {
         escape = rb_funcall(str, html_safe_predicate_id, 0) == Qfalse;

@@ -7,6 +7,8 @@ require "action_view/buffers"
 
 TIMES = 1000
 
+GC.disable
+
 Benchmark.ips do |x|
   x.report("actionview") do
     buffer = ActionView::OutputBuffer.new

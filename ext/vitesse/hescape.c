@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include "hescape.h"
 
 #ifdef __SSE4_2__
@@ -19,13 +20,13 @@
 # define unlikely(x) (x)
 #endif
 
-static const uint8_t *ESCAPED_STRING[] = {
-  (uint8_t*)"",
-  (uint8_t*)"&quot;",
-  (uint8_t*)"&amp;",
-  (uint8_t*)"&#39;",
-  (uint8_t*)"&lt;",
-  (uint8_t*)"&gt;",
+static const char *ESCAPED_STRING[] = {
+  "",
+  "&quot;",
+  "&amp;",
+  "&#39;",
+  "&lt;",
+  "&gt;",
 };
 
 // This is strlen(ESCAPED_STRING[x]) optimized specially.
@@ -60,13 +61,14 @@ static const char HTML_ESCAPE_TABLE[] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-static uint8_t*
-ensure_allocated(uint8_t *buf, size_t size, size_t *asize)
+static char*
+ensure_allocated(char *buf, size_t size, size_t *asize)
 {
+  size_t new_size;
+
   if (size < *asize)
     return buf;
 
-  size_t new_size;
   if (*asize == 0) {
     new_size = size;
   } else {
@@ -77,89 +79,83 @@ ensure_allocated(uint8_t *buf, size_t size, size_t *asize)
   while (new_size < size)
     new_size = (new_size << 1) - (new_size >> 1);
 
+  // Round allocation up to multiple of 8.
+  new_size = (new_size + 7) & ~7;
+
   *asize = new_size;
   return realloc(buf, new_size);
 }
 
 #ifdef __SSE4_2__
 static size_t
-find_char_fast(const char *buf, size_t i, size_t size, __m128i range, size_t range_size, int *found)
+find_escape_fast(const char *buf, size_t i, size_t size, int *found)
 {
-  size_t left = (size - i) & ~15;
-  do {
-    __m128i b16 = _mm_loadu_si128((void *)(buf + i));
-    int index = _mm_cmpestri(range, range_size, b16, 16, _SIDD_CMP_EQUAL_ANY);
-    if (unlikely(index != 16)) {
-      i += index;
-      *found = 1;
-      break;
-    }
-    i += 16;
-    left -= 16;
-  } while(likely(left != 0));
+  static const char escapes[] = "\"&'<>";
 
+  if (likely(size - i >= 16)) {
+    __m128i escapes5 = _mm_loadu_si128((const __m128i *)escapes);
+    size_t left = (size - i) & ~15;
+    do {
+      __m128i b16 = _mm_loadu_si128((void *)(buf + i));
+      int index = _mm_cmpestri(escapes5, 5, b16, 16, _SIDD_CMP_EQUAL_ANY);
+      if (unlikely(index != 16)) {
+        i += index;
+        *found = 1;
+        return i;
+      }
+      i += 16;
+      left -= 16;
+    } while(likely(left != 0));
+  }
+  *found = 0;
   return i;
 }
 #endif
 
-static inline size_t
-append_pending_buf(uint8_t *rbuf, size_t rbuf_i, const uint8_t *buf, size_t buf_i, size_t esize)
-{
-  memcpy(rbuf + rbuf_i, buf + (rbuf_i - esize), buf_i - (rbuf_i - esize));
-  return buf_i + esize;
-}
-
-static inline size_t
-append_escaped_buf(uint8_t *rbuf, size_t rbuf_i, size_t esc_i, size_t *esize)
-{
-  memcpy(rbuf + rbuf_i, ESCAPED_STRING[esc_i], ESC_LEN(esc_i));
-  *esize += ESC_LEN(esc_i) - 1;
-  return rbuf_i + ESC_LEN(esc_i);
-}
-
 size_t
-hesc_escape_html(uint8_t **dest, const uint8_t *buf, size_t size)
+hesc_escape_html(char **dest, const char *buf, size_t size)
 {
-  size_t asize = 0, esc_i, esize = 0, i = 0, rbuf_i = 0;
-  // const uint8_t *esc;
-  uint8_t *rbuf = NULL;
+  size_t asize = 0, esc_i, esize = 0, i = 0, rbuf_end = 0;
+  const char *esc;
+  char *rbuf = NULL;
+
+# define DO_ESCAPE() { \
+    esc = ESCAPED_STRING[esc_i]; \
+    rbuf = ensure_allocated(rbuf, sizeof(char) * (size + esize + ESC_LEN(esc_i) + 1), &asize); \
+    memmove(rbuf + rbuf_end, buf + (rbuf_end - esize), i - (rbuf_end - esize)); \
+    memmove(rbuf + i + esize, esc, ESC_LEN(esc_i)); \
+    rbuf_end = i + esize + ESC_LEN(esc_i); \
+    esize += ESC_LEN(esc_i) - 1; \
+  }
 
 # ifdef __SSE4_2__
-  __m128i escapes5 = _mm_loadu_si128((const __m128i *)"\"&'<>");
-  while (likely(size - i >= 16)) {
-    int found = 0;
-    if (unlikely((esc_i = HTML_ESCAPE_TABLE[buf[i]]) == 0)) {
-      i = find_char_fast(buf, i, size, escapes5, 5, &found);
-      if (!found) break;
-      esc_i = HTML_ESCAPE_TABLE[buf[i]];
-    }
-    rbuf = ensure_allocated(rbuf, sizeof(uint8_t) * (size + esize + ESC_LEN(esc_i) + 1), &asize);
-    rbuf_i = append_pending_buf(rbuf, rbuf_i, buf, i, esize);
-    rbuf_i = append_escaped_buf(rbuf, rbuf_i, esc_i, &esize);
+  int found = 0;
+  while (i < size) {
+    i = find_escape_fast(buf, i, size, &found);
+    if (!found) break;
+
+    esc_i = HTML_ESCAPE_TABLE[(unsigned char)buf[i]];
+    if (i < size && esc_i) DO_ESCAPE();
     i++;
   }
 # endif
 
   while (i < size) {
     // Loop here to skip non-escaped characters fast.
-    while (i < size && (esc_i = HTML_ESCAPE_TABLE[buf[i]]) == 0)
+    while (i < size && (esc_i = HTML_ESCAPE_TABLE[(unsigned char)buf[i]]) == 0)
       i++;
 
-    if (esc_i) {
-      rbuf = ensure_allocated(rbuf, sizeof(uint8_t) * (size + esize + ESC_LEN(esc_i) + 1), &asize);
-      rbuf_i = append_pending_buf(rbuf, rbuf_i, buf, i, esize);
-      rbuf_i = append_escaped_buf(rbuf, rbuf_i, esc_i, &esize);
-    }
+    if (i < size && esc_i) DO_ESCAPE();
     i++;
   }
 
-  if (rbuf_i == 0) {
+  if (rbuf_end == 0) {
     // Return given buf and size if there are no escaped characters.
-    *dest = (uint8_t *)buf;
+    *dest = (char *)buf;
     return size;
   } else {
-    append_pending_buf(rbuf, rbuf_i, buf, size, esize);
-    rbuf[size + esize] = '\0';
+    // Copy pending characters including NULL character.
+    memmove(rbuf + rbuf_end, buf + (rbuf_end - esize), (size + 1) - (rbuf_end - esize));
 
     *dest = rbuf;
     return size + esize;
