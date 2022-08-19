@@ -14,11 +14,11 @@ module Vitesse
           require "action_view/buffers"
 
           ActionView::OriginalOutputBuffer ||= ActionView::OutputBuffer
-          ActionView::OutputBuffer = Vitesse::OutputBuffer
+          silence_warnings { ActionView::OutputBuffer = Vitesse::OutputBuffer }
 
           if ActionView.const_defined?(:RawOutputBuffer)
             ActionView::OriginalRawOutputBuffer ||= ActionView::RawOutputBuffer
-            ActionView::RawOutputBuffer = Vitesse::RawOutputBuffer
+            silence_warnings { ActionView::RawOutputBuffer = Vitesse::RawOutputBuffer }
           end
         end
       end
