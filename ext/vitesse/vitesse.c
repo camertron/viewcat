@@ -162,7 +162,7 @@ VALUE vt_unsafe_append(VALUE self, VALUE str) {
 
     bool escape;
 
-    if (TYPE(str) == T_STRING) {
+    if (CLASS_OF(str) == rb_cString) {
         escape = true;
     } else {
         escape = rb_funcall(str, html_safe_predicate_id, 0) == Qfalse;
