@@ -144,7 +144,7 @@ VALUE vt_append(VALUE self, VALUE str, bool escape) {
     data->count ++;
     data->len += new_node->raw_len;
 
-    return Qnil;
+    return self;
 }
 
 VALUE vt_safe_append(VALUE self, VALUE str) {
