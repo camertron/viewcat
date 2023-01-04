@@ -13,9 +13,9 @@ end
 Bundler::GemHelper.install_tasks
 
 task :bench do
-  load "bench.rb"
+  load File.join(*%w(script bench.rb))
 end
 
 task :prof do
-  load "prof.rb"
+  load File.join(*%w(script prof.rb))
 end
