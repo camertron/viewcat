@@ -2,23 +2,23 @@
 
 require "rails"
 
-module Vitesse
+module Viewcat
   class Engine < Rails::Engine
-    config.vitesse = ActiveSupport::OrderedOptions.new(enabled: false)
+    config.viewcat = ActiveSupport::OrderedOptions.new(enabled: false)
 
-    initializer "vitesse.patch" do |app|
-      options = app.config.vitesse
+    initializer "viewcat.patch" do |app|
+      options = app.config.viewcat
 
       ActiveSupport.on_load(:action_view) do
         if options.enabled
           require "action_view/buffers"
 
           ActionView::OriginalOutputBuffer ||= ActionView::OutputBuffer
-          silence_warnings { ActionView::OutputBuffer = Vitesse::OutputBuffer }
+          silence_warnings { ActionView::OutputBuffer = Viewcat::OutputBuffer }
 
           if ActionView.const_defined?(:RawOutputBuffer)
             ActionView::OriginalRawOutputBuffer ||= ActionView::RawOutputBuffer
-            silence_warnings { ActionView::RawOutputBuffer = Vitesse::RawOutputBuffer }
+            silence_warnings { ActionView::RawOutputBuffer = Viewcat::RawOutputBuffer }
           end
         end
       end

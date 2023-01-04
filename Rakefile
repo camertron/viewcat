@@ -3,11 +3,11 @@
 require "bundler"
 require "rake/extensiontask"
 
-spec = Bundler.load_gemspec("vitesse.gemspec")
+spec = Bundler.load_gemspec("viewcat.gemspec")
 
-Rake::ExtensionTask.new("vitesse", spec) do |ext|
-  ext.ext_dir = "ext/vitesse"
-  ext.lib_dir = "lib/vitesse"
+Rake::ExtensionTask.new("viewcat", spec) do |ext|
+  ext.ext_dir = "ext/viewcat"
+  ext.lib_dir = "lib/viewcat"
 end
 
 Bundler::GemHelper.install_tasks

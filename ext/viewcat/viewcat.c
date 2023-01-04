@@ -12,7 +12,7 @@ struct Node {
     unsigned long raw_len;
 };
 
-struct vt_data {
+struct vc_data {
     struct Node* entries;
     int capacity;
     int count;
@@ -20,7 +20,7 @@ struct vt_data {
     int encidx;
 };
 
-static VALUE vt_mod, vt_buffer, vt_raw_buffer;
+static VALUE vc_mod, vc_buffer, vc_raw_buffer;
 
 static ID html_safe_predicate_id;
 static ID html_safe_id;
@@ -38,8 +38,8 @@ static void maybe_free_raw_str(struct Node* node) {
     }
 }
 
-void vt_data_free(void* _data) {
-    struct vt_data *data = (struct vt_data*)_data;
+void vc_data_free(void* _data) {
+    struct vc_data *data = (struct vc_data*)_data;
 
     if (data->entries == NULL) {
         return;
@@ -53,29 +53,29 @@ void vt_data_free(void* _data) {
     data->entries = NULL;
 }
 
-void vt_data_mark(void* _data) {
-    struct vt_data *data = (struct vt_data*)_data;
+void vc_data_mark(void* _data) {
+    struct vc_data *data = (struct vc_data*)_data;
 
     for (int i = 0; i < data->count; i ++) {
         rb_gc_mark(data->entries[i].str);
     }
 }
 
-size_t vt_data_size(const void* data) {
-	return sizeof(struct vt_data);
+size_t vc_data_size(const void* data) {
+	return sizeof(struct vc_data);
 }
 
-static const rb_data_type_t vt_data_type = {
-	.wrap_struct_name = "vt_data",
+static const rb_data_type_t vc_data_type = {
+	.wrap_struct_name = "vc_data",
 	.function = {
-        .dmark = vt_data_mark,
-        .dfree = vt_data_free,
-        .dsize = vt_data_size,
+        .dmark = vc_data_mark,
+        .dfree = vc_data_free,
+        .dsize = vc_data_size,
 	},
 	.flags = RUBY_TYPED_FREE_IMMEDIATELY,
 };
 
-static inline void resize(struct vt_data* data, int capacity) {
+static inline void resize(struct vc_data* data, int capacity) {
     if (capacity == 0) {
         capacity = INITIAL_CAPACITY;
     }
@@ -92,16 +92,16 @@ static inline void resize(struct vt_data* data, int capacity) {
     data->entries = new_entries;
 }
 
-VALUE vt_data_alloc(VALUE self) {
-    struct vt_data *data;
-    data = malloc(sizeof(struct vt_data));
+VALUE vc_data_alloc(VALUE self) {
+    struct vc_data *data;
+    data = malloc(sizeof(struct vc_data));
     data->capacity = 0;
     data->count = 0;
     data->len = 0;
     data->entries = NULL;
     data->encidx = rb_locale_encindex();
 
-    return TypedData_Wrap_Struct(self, &vt_data_type, data);
+    return TypedData_Wrap_Struct(self, &vc_data_type, data);
 }
 
 static inline void set_str(struct Node* node, VALUE str, bool escape) {
@@ -118,13 +118,13 @@ static inline void set_str(struct Node* node, VALUE str, bool escape) {
     node->raw_str = (char*)raw_str;
 }
 
-VALUE vt_append(VALUE self, VALUE str, bool escape) {
+VALUE vc_append(VALUE self, VALUE str, bool escape) {
     if (TYPE(str) != T_STRING) {
         str = rb_convert_type(str, T_STRING, "String", "to_s");
     }
 
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
 
     if (data->count == data->capacity) {
         resize(data, data->capacity * 2);
@@ -147,15 +147,15 @@ VALUE vt_append(VALUE self, VALUE str, bool escape) {
     return Qnil;
 }
 
-VALUE vt_safe_append(VALUE self, VALUE str) {
+VALUE vc_safe_append(VALUE self, VALUE str) {
     if (NIL_P(str)) {
         return Qnil;
     }
 
-    return vt_append(self, str, false);
+    return vc_append(self, str, false);
 }
 
-VALUE vt_unsafe_append(VALUE self, VALUE str) {
+VALUE vc_unsafe_append(VALUE self, VALUE str) {
     if (NIL_P(str)) {
         return Qnil;
     }
@@ -168,20 +168,20 @@ VALUE vt_unsafe_append(VALUE self, VALUE str) {
         escape = rb_funcall(str, html_safe_predicate_id, 0) == Qfalse;
     }
 
-    return vt_append(self, str, escape);
+    return vc_append(self, str, escape);
 }
 
-VALUE vt_initialize(int argc, VALUE* argv, VALUE self) {
+VALUE vc_initialize(int argc, VALUE* argv, VALUE self) {
     if (argc == 1) {
-        vt_append(self, argv[0], false);
+        vc_append(self, argv[0], false);
     }
 
     return Qnil;
 }
 
-VALUE vt_to_str(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_to_str(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
     unsigned long pos = 0;
     char* result = malloc(data->len + 1);
 
@@ -196,20 +196,20 @@ VALUE vt_to_str(VALUE self) {
     return rb_enc_str_new(result, data->len, rb_enc_from_index(data->encidx));
 }
 
-VALUE vt_to_s(VALUE self) {
-    VALUE str = vt_to_str(self);
+VALUE vc_to_s(VALUE self) {
+    VALUE str = vc_to_str(self);
     return rb_funcall(str, html_safe_id, 0);
 }
 
-VALUE vt_length(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_length(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
     return ULONG2NUM(data->len);
 }
 
-VALUE vt_empty(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_empty(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
 
     if (data->len == 0) {
         return Qtrue;
@@ -218,9 +218,9 @@ VALUE vt_empty(VALUE self) {
     }
 }
 
-VALUE vt_blank(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_blank(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
 
     for(int i = 0; i < data->count; i ++) {
         if (!fb_str_blank_as(data->entries[i].str)) {
@@ -231,28 +231,28 @@ VALUE vt_blank(VALUE self) {
     return Qtrue;
 }
 
-VALUE vt_html_safe_predicate(VALUE self) {
+VALUE vc_html_safe_predicate(VALUE self) {
     return Qtrue;
 }
 
-VALUE vt_initialize_copy(VALUE self, VALUE other) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
-    vt_data_free(data);
+VALUE vc_initialize_copy(VALUE self, VALUE other) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
+    vc_data_free(data);
 
     VALUE other_str = rb_funcall(other, to_str_id, 0);
-    vt_append(self, other_str, false);
+    vc_append(self, other_str, false);
 
     return Qnil;
 }
 
-VALUE vt_call_capture_block(VALUE block) {
+VALUE vc_call_capture_block(VALUE block) {
     return rb_funcall(block, call_id, 0);
 }
 
-VALUE vt_capture(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_capture(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
 
     struct Node* old_entries = data->entries;
     int old_capacity = data->capacity;
@@ -268,16 +268,16 @@ VALUE vt_capture(VALUE self) {
 
     int state;
     VALUE block = rb_block_proc();
-    rb_protect(vt_call_capture_block, block, &state);
+    rb_protect(vc_call_capture_block, block, &state);
 
     VALUE result = Qnil;
 
     if (!state) {
-        result = vt_to_str(self);
+        result = vc_to_str(self);
         result = rb_funcall(result, html_safe_id, 0);
     }
 
-    vt_data_free(data);
+    vc_data_free(data);
 
     data->entries = old_entries;
     data->capacity = old_capacity;
@@ -292,16 +292,16 @@ VALUE vt_capture(VALUE self) {
     return result;
 }
 
-VALUE vt_equals(VALUE self, VALUE other) {
+VALUE vc_equals(VALUE self, VALUE other) {
     if (CLASS_OF(other) != CLASS_OF(self)) {
         return Qfalse;
     }
 
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
 
-    struct vt_data* other_data;
-    TypedData_Get_Struct(other, struct vt_data, &vt_data_type, other_data);
+    struct vc_data* other_data;
+    TypedData_Get_Struct(other, struct vc_data, &vc_data_type, other_data);
 
     if (data->len != other_data->len) {
         return Qfalse;
@@ -320,9 +320,9 @@ VALUE vt_equals(VALUE self, VALUE other) {
     return Qtrue;
 }
 
-VALUE vt_encode_bang(int argc, VALUE* argv, VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_encode_bang(int argc, VALUE* argv, VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
 
     for (int i = 0; i < data->count; i ++) {
         struct Node* current = &data->entries[i];
@@ -334,49 +334,49 @@ VALUE vt_encode_bang(int argc, VALUE* argv, VALUE self) {
     return self;
 }
 
-VALUE vt_force_encoding(VALUE self, VALUE enc) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_force_encoding(VALUE self, VALUE enc) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
     data->encidx = rb_to_encoding_index(enc);
     return self;
 }
 
-VALUE vt_encoding(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_encoding(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
     return rb_enc_from_encoding(rb_enc_from_index(data->encidx));
 }
 
-VALUE vt_raw_initialize(VALUE self, VALUE buf) {
+VALUE vc_raw_initialize(VALUE self, VALUE buf) {
     rb_iv_set(self, "@buffer", buf);
     return Qnil;
 }
 
-VALUE vt_count(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_count(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
     return LONG2FIX(data->count);
 }
 
-VALUE vt_capacity(VALUE self) {
-    struct vt_data* data;
-    TypedData_Get_Struct(self, struct vt_data, &vt_data_type, data);
+VALUE vc_capacity(VALUE self) {
+    struct vc_data* data;
+    TypedData_Get_Struct(self, struct vc_data, &vc_data_type, data);
     return LONG2FIX(data->capacity);
 }
 
-VALUE vt_raw_append(VALUE self, VALUE str) {
+VALUE vc_raw_append(VALUE self, VALUE str) {
     VALUE buffer = rb_iv_get(self, "@buffer");
-    vt_append(buffer, str, false);
+    vc_append(buffer, str, false);
     return Qnil;
 }
 
-VALUE vt_raw(VALUE self) {
-    VALUE raw_buffer = rb_obj_alloc(vt_raw_buffer);
-    vt_raw_initialize(raw_buffer, self);
+VALUE vc_raw(VALUE self) {
+    VALUE raw_buffer = rb_obj_alloc(vc_raw_buffer);
+    vc_raw_initialize(raw_buffer, self);
     return raw_buffer;
 }
 
-void Init_vitesse() {
+void Init_viewcat() {
     call_id = rb_intern("call");
     to_s_id = rb_intern("to_s");
     to_str_id = rb_intern("to_str");
@@ -384,38 +384,38 @@ void Init_vitesse() {
     html_safe_id = rb_intern("html_safe");
     html_safe_predicate_id = rb_intern("html_safe?");
 
-    vt_mod = rb_define_module("Vitesse");
-    vt_buffer = rb_define_class_under(vt_mod, "OutputBuffer", rb_cObject);
-    rb_define_alloc_func(vt_buffer, vt_data_alloc);
+    vc_mod = rb_define_module("Viewcat");
+    vc_buffer = rb_define_class_under(vc_mod, "OutputBuffer", rb_cObject);
+    rb_define_alloc_func(vc_buffer, vc_data_alloc);
 
-    rb_define_method(vt_buffer, "initialize", RUBY_METHOD_FUNC(vt_initialize), -1);
+    rb_define_method(vc_buffer, "initialize", RUBY_METHOD_FUNC(vc_initialize), -1);
 
-    rb_define_method(vt_buffer, "<<", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
-    rb_define_method(vt_buffer, "concat", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
-    rb_define_method(vt_buffer, "append=", RUBY_METHOD_FUNC(vt_unsafe_append), 1);
+    rb_define_method(vc_buffer, "<<", RUBY_METHOD_FUNC(vc_unsafe_append), 1);
+    rb_define_method(vc_buffer, "concat", RUBY_METHOD_FUNC(vc_unsafe_append), 1);
+    rb_define_method(vc_buffer, "append=", RUBY_METHOD_FUNC(vc_unsafe_append), 1);
 
-    rb_define_method(vt_buffer, "safe_concat", RUBY_METHOD_FUNC(vt_safe_append), 1);
-    rb_define_method(vt_buffer, "safe_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
-    rb_define_method(vt_buffer, "safe_expr_append=", RUBY_METHOD_FUNC(vt_safe_append), 1);
+    rb_define_method(vc_buffer, "safe_concat", RUBY_METHOD_FUNC(vc_safe_append), 1);
+    rb_define_method(vc_buffer, "safe_append=", RUBY_METHOD_FUNC(vc_safe_append), 1);
+    rb_define_method(vc_buffer, "safe_expr_append=", RUBY_METHOD_FUNC(vc_safe_append), 1);
 
-    rb_define_method(vt_buffer, "to_s", RUBY_METHOD_FUNC(vt_to_s), 0);
-    rb_define_method(vt_buffer, "to_str", RUBY_METHOD_FUNC(vt_to_str), 0);
-    rb_define_method(vt_buffer, "length", RUBY_METHOD_FUNC(vt_length), 0);
-    rb_define_method(vt_buffer, "empty?", RUBY_METHOD_FUNC(vt_empty), 0);
-    rb_define_method(vt_buffer, "blank?", RUBY_METHOD_FUNC(vt_blank), 0);
-    rb_define_method(vt_buffer, "html_safe?", RUBY_METHOD_FUNC(vt_html_safe_predicate), 0);
-    rb_define_method(vt_buffer, "initialize_copy", RUBY_METHOD_FUNC(vt_initialize_copy), 1);
-    rb_define_method(vt_buffer, "capture", RUBY_METHOD_FUNC(vt_capture), 0);
-    rb_define_method(vt_buffer, "==", RUBY_METHOD_FUNC(vt_equals), 1);
-    rb_define_method(vt_buffer, "encode!", RUBY_METHOD_FUNC(vt_encode_bang), -1);
-    rb_define_method(vt_buffer, "force_encoding", RUBY_METHOD_FUNC(vt_force_encoding), 1);
-    rb_define_method(vt_buffer, "encoding", RUBY_METHOD_FUNC(vt_encoding), 0);
-    rb_define_method(vt_buffer, "raw", RUBY_METHOD_FUNC(vt_raw), 0);
+    rb_define_method(vc_buffer, "to_s", RUBY_METHOD_FUNC(vc_to_s), 0);
+    rb_define_method(vc_buffer, "to_str", RUBY_METHOD_FUNC(vc_to_str), 0);
+    rb_define_method(vc_buffer, "length", RUBY_METHOD_FUNC(vc_length), 0);
+    rb_define_method(vc_buffer, "empty?", RUBY_METHOD_FUNC(vc_empty), 0);
+    rb_define_method(vc_buffer, "blank?", RUBY_METHOD_FUNC(vc_blank), 0);
+    rb_define_method(vc_buffer, "html_safe?", RUBY_METHOD_FUNC(vc_html_safe_predicate), 0);
+    rb_define_method(vc_buffer, "initialize_copy", RUBY_METHOD_FUNC(vc_initialize_copy), 1);
+    rb_define_method(vc_buffer, "capture", RUBY_METHOD_FUNC(vc_capture), 0);
+    rb_define_method(vc_buffer, "==", RUBY_METHOD_FUNC(vc_equals), 1);
+    rb_define_method(vc_buffer, "encode!", RUBY_METHOD_FUNC(vc_encode_bang), -1);
+    rb_define_method(vc_buffer, "force_encoding", RUBY_METHOD_FUNC(vc_force_encoding), 1);
+    rb_define_method(vc_buffer, "encoding", RUBY_METHOD_FUNC(vc_encoding), 0);
+    rb_define_method(vc_buffer, "raw", RUBY_METHOD_FUNC(vc_raw), 0);
 
-    rb_define_method(vt_buffer, "count", RUBY_METHOD_FUNC(vt_count), 0);
-    rb_define_method(vt_buffer, "capacity", RUBY_METHOD_FUNC(vt_capacity), 0);
+    rb_define_method(vc_buffer, "count", RUBY_METHOD_FUNC(vc_count), 0);
+    rb_define_method(vc_buffer, "capacity", RUBY_METHOD_FUNC(vc_capacity), 0);
 
-    vt_raw_buffer = rb_define_class_under(vt_mod, "RawOutputBuffer", rb_cObject);
-    rb_define_method(vt_raw_buffer, "initialize", RUBY_METHOD_FUNC(vt_raw_initialize), 1);
-    rb_define_method(vt_raw_buffer, "<<", RUBY_METHOD_FUNC(vt_raw_append), 1);
+    vc_raw_buffer = rb_define_class_under(vc_mod, "RawOutputBuffer", rb_cObject);
+    rb_define_method(vc_raw_buffer, "initialize", RUBY_METHOD_FUNC(vc_raw_initialize), 1);
+    rb_define_method(vc_raw_buffer, "<<", RUBY_METHOD_FUNC(vc_raw_append), 1);
 }

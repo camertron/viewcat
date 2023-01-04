@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
-module Vitesse
+module Viewcat
   VERSION = "1.0.0"
 end

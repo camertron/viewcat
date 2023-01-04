@@ -4,5 +4,5 @@ Gemfile.lock
 pkg/
 tmp/
 old/
-lib/vitesse/*.bundle
-lib/vitesse/*.so
+lib/viewcat/*.bundle
+lib/viewcat/*.so

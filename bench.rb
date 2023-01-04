@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "vitesse"
+require "viewcat"
 require "benchmark/ips"
 require "active_support/core_ext/module/delegation"
 require "action_view/buffers"
@@ -14,19 +14,19 @@ Benchmark.ips do |x|
     buffer = ActionView::OutputBuffer.new
 
     TIMES.times do
-      buffer.safe_append=("this is a longer string that should need a pointer")
-      buffer.append=("this is another <em>quite</em> long string that should need its own memory")
+      buffer.append="<p>foo</p> baz "
+      buffer.safe_append="bar"
     end
 
     buffer.to_str
   end
 
-  x.report("vitesse") do
-    buffer = Vitesse::OutputBuffer.new
+  x.report("viewcat") do
+    buffer = Viewcat::OutputBuffer.new
 
     TIMES.times do
-      buffer.safe_append=("this is a longer string that should need a pointer")
-      buffer.append=("this is another <em>quite</em> long string that should need its own memory")
+      buffer.append="<p>foo</p> baz "
+      buffer.safe_append="bar"
     end
 
     buffer.to_str
