@@ -384,8 +384,11 @@ void Init_viewcat() {
     html_safe_id = rb_intern("html_safe");
     html_safe_predicate_id = rb_intern("html_safe?");
 
+    VALUE action_view_mod = rb_const_get(rb_mKernel, rb_intern("ActionView"));
+    VALUE output_buffer_mod = rb_const_get(action_view_mod, rb_intern("OutputBuffer"));
+
     vc_mod = rb_define_module("Viewcat");
-    vc_buffer = rb_define_class_under(vc_mod, "OutputBuffer", rb_cObject);
+    vc_buffer = rb_define_class_under(vc_mod, "OutputBuffer", output_buffer_mod);
     rb_define_alloc_func(vc_buffer, vc_data_alloc);
 
     rb_define_method(vc_buffer, "initialize", RUBY_METHOD_FUNC(vc_initialize), -1);
